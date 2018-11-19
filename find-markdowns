@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+
+from shutil import copyfile
+
+import argparse
+import fnmatch
+import os
+
+
+class Finder:
+    """
+    Finder will find all markdown files based on input pattern.
+    """
+
+    DOCS_DIRECTORY = 'docs'
+
+    def __init__(self, args: argparse.Namespace):
+        """
+        Initiate the Finder class to search for markdown files.
+        """
+        self.path = args.path
+
+        self.ignore_patterns = args.ignore
+        if args.ignore is None:
+            self.ignore_patterns = []
+
+    def find_files(self):
+        """
+        Find files will build the list of markdons to copy.
+        """
+        result = []
+
+        for path in self.path:
+            for root, _, files in os.walk(path):
+                for name in files:
+                    if fnmatch.fnmatch(name, "*.md"):
+                        result.append(os.path.join(root, name))
+
+        return result
+
+    def run(self):
+        """
+        Execute the search based on your pattern and copy your files.
+        """
+        if not os.path.dirname(self.DOCS_DIRECTORY):
+            os.makedirs(self.DOCS_DIRECTORY)
+
+        for markdown_file in self.find_files():
+            # Skip file if it contains an ignore pattern
+            for ignore_pattern in self.ignore_patterns:
+                if ignore_pattern in markdown_file:
+                    continue
+
+            # Trim prefix like /home/user/workspace or whatever path was
+            # specified.
+            relative = markdown_file
+            for pattern in self.path:
+                if markdown_file.startswith(pattern):
+                    relative = os.path.relpath(markdown_file, pattern)
+
+            directory = os.path.dirname(relative)
+            doc_dir = self.DOCS_DIRECTORY + directory
+
+            if not os.path.exists(doc_dir):
+                os.makedirs(doc_dir)
+
+            copyfile(markdown_file, 'docs/' + relative)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Find markdown files.')  # noqa: E501
+    parser.add_argument('--path', action='append', help='paths to search for markdowns')  # noqa: E501
+    parser.add_argument('--ignore', action='append', help='patterns to ignore if found in file path')  # noqa: E501
+    args = parser.parse_args()
+
+    finder = Finder(args)
+
+    finder.run()
